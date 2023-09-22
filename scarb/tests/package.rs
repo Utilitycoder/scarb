@@ -489,7 +489,52 @@ fn git_dependency_no_version() {
 // TODO(mkaput): Symlinks and other FS shenanigans
 // TODO(mkaput): Gitignore
 // TODO(mkaput): Invalid readme/license path
-// TODO(mkaput): Restricted Windows files
+
+#[test]
+#[cfg_attr(
+    target_family = "windows",
+    ignore = "Windows doesn't allow these characters in filenames."
+)]
+fn weird_characters_in_filenames() {
+    let t = TempDir::new().unwrap();
+    ProjectBuilder::start().src("src/:foo", "").build(&t);
+
+    Scarb::quick_snapbox()
+        .arg("package")
+        .current_dir(&t)
+        .assert()
+        .failure()
+        .stdout_matches(indoc! {r#"
+        [..] Packaging [..]
+        error: failed to package source code
+        [..] invalid character `:` in package name `src/:foo`
+        "#});
+}
+
+#[test]
+#[cfg_attr(
+    target_family = "windows",
+    ignore = "We do not want to create invalid files on Windows."
+)]
+fn windows_restricted_filenames() {
+    let t = TempDir::new().unwrap();
+    ProjectBuilder::start()
+        .lib_cairo("mod con; mod aux;")
+        .src("src/con.cairo", "")
+        .src("src/aux.cairo", "")
+        .build(&t);
+
+    Scarb::quick_snapbox()
+        .arg("package")
+        .current_dir(&t)
+        .assert()
+        .failure()
+        .stdout_matches(indoc! {r#"
+        [..] Packaging [..]
+        error: failed to package source code
+        [..] invalid character `:` in package name `src/:foo`
+        "#});
+}
 
 #[test]
 fn clean_tar_headers() {
